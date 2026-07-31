@@ -1,5 +1,10 @@
 # 🚀 DevOps Deployment Project
 
+## Deployment Endpoint
+
+- **Domain:** https://resilientbeing.online
+- **EC2 Public IP:** 65.2.178.141
+
 ## Assignment Summary
 
 This repository was provided as a DevOps deployment assignment with intentionally misconfigured deployment files.
