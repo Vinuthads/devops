@@ -227,58 +227,54 @@ resource "aws_instance" "server" {
 
   # Install Git, Docker and Docker Compose
 
-   user_data = <<-EOF
-    #!/bin/bash
-    set -e
-    apt update -y
-    # Install required packages
-    apt install -y \
-    git \
-    ca-certificates \
-    curl \
-    gnupg
+  #!/bin/bash
+  set -eux
 
-    # Install Docker official repository
-    install -m 0755 -d /etc/apt/keyrings
-    curl -fsSL https://download.docker.com/linux/ubuntu/gpg \
-  | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+  export DEBIAN_FRONTEND=noninteractive
 
-    chmod a+r /etc/apt/keyrings/docker.gpg
+  apt-get update -y
 
+  # Install prerequisites
+  apt-get install -y \
+      ca-certificates \
+      curl \
+      gnupg \
+      git
 
-    echo \
-    "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo $VERSION_CODENAME) stable" \
-    | tee /etc/apt/sources.list.d/docker.list > /dev/null
+  # Add Docker GPG key
+  install -m 0755 -d /etc/apt/keyrings
 
+  curl -fsSL https://download.docker.com/linux/ubuntu/gpg | \
+  gpg --dearmor -o /etc/apt/keyrings/docker.gpg
 
-    apt update -y
+  chmod a+r /etc/apt/keyrings/docker.gpg
 
+  # Add Docker repository
+  echo \
+  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
+  $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
+  tee /etc/apt/sources.list.d/docker.list > /dev/null
 
-  # Install Docker Engine + Compose plugin
+  apt-get update -y
 
-  apt install -y \
-    docker-ce \
-    docker-ce-cli \
-    containerd.io \
-    docker-buildx-plugin \
-    docker-compose-plugin
+  # Install Docker
+  apt-get install -y \
+      docker-ce \
+      docker-ce-cli \
+      containerd.io \
+      docker-buildx-plugin \
+      docker-compose-plugin
 
-# Enable Docker
+  # Start Docker
+  systemctl enable docker
+  systemctl start docker
 
-systemctl enable docker
+  # Add ubuntu user to docker group
+  usermod -aG docker ubuntu
 
-systemctl start docker
-
-# Allow ubuntu user to use docker
-
-usermod -aG docker ubuntu
-
-
-# Verify
-docker --version
-docker compose version
-
-EOF
+  # Verify installation
+  docker --version
+  docker compose version
 
 
 
