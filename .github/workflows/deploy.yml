@@ -64,6 +64,7 @@ jobs:
 
       - name: Deploy to EC2
         uses: appleboy/ssh-action@v1.0.3
+
         with:
           host: ${{ needs.terraform.outputs.ec2_ip }}
           username: ${{ secrets.EC2_USER }}
@@ -97,25 +98,54 @@ jobs:
 
             cd /home/ubuntu/devops
 
+            # Create temporary certificate if Let's Encrypt certificate doesn't exist
+            if [ ! -f "./certbot/conf/live/resilientbeing.online/fullchain.pem" ]; then
+
+              echo "Creating temporary self-signed certificate..."
+
+              sudo mkdir -p ./certbot/conf/live/resilientbeing.online
+
+              sudo openssl req \
+                -x509 \
+                -nodes \
+                -newkey rsa:2048 \
+                -days 1 \
+                -keyout ./certbot/conf/live/resilientbeing.online/privkey.pem \
+                -out ./certbot/conf/live/resilientbeing.online/fullchain.pem \
+                -subj "/CN=resilientbeing.online"
+
+            fi
+
+            echo "Starting Docker containers..."
+
             sudo docker compose up --build -d
 
             echo "Waiting for Nginx..."
             sleep 15
 
-            if [ ! -f "./certbot/conf/live/yourdomain.com/fullchain.pem" ]; then
+            # Obtain Let's Encrypt certificate only once
+            if [ ! -f "./certbot/conf/live/resilientbeing.online/.le-created" ]; then
+
               echo "Obtaining Let's Encrypt certificate..."
 
               sudo docker compose run --rm certbot certonly \
                 --webroot \
                 --webroot-path=/var/www/certbot \
                 -d resilientbeing.online \
+                -d www.resilientbeing.online \
                 --agree-tos \
                 --register-unsafely-without-email
+
+              sudo touch ./certbot/conf/live/resilientbeing.online/.le-created
+
+              echo "Reloading Nginx..."
 
               sudo docker compose restart nginx
 
             else
-              echo "Certificate already exists."
+
+              echo "Let's Encrypt certificate already exists."
+
             fi
 
             sudo docker image prune -f
