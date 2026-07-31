@@ -308,7 +308,7 @@ data "aws_route53_zone" "selected" {
   private_zone = false
 }
 
-resource "aws_route53_record" {
+resource "aws_route53_record" "app_record" {
   zone_id = data.aws_route53_zone.selected.zone_id
   name    = var.record_name
   type    = "A"
