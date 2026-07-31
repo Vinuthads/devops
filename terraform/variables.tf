@@ -29,3 +29,11 @@ variable "key_name" {
 variable "project_name" {
   default = "devops-project"
 }
+
+variable "domain_name" {
+  default = "resilientbeing.online"
+}
+
+variable "record_name" {
+  default = "resilientbeing.online"
+}
