@@ -1,0 +1,19 @@
+# SSL certificates
+certbot/conf/
+certbot/www/
+
+# Private keys
+*.pem
+
+# Environment variables
+.env
+
+# Python
+__pycache__/
+*.pyc
+
+# Node
+node_modules/
+
+# Logs
+*.log~
