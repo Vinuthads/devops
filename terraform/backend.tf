@@ -4,7 +4,7 @@ terraform {
     key            = "devops/terraform.tfstate"
     region         = "ap-south-1"
     encrypt        = true
-    dynamodb_table = "terraform-lock"
+    use_lockfile = "terraform-lock"
   }
 
   required_providers {
