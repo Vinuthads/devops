@@ -5,6 +5,46 @@
 - **Domain:** https://resilientbeing.online
 - **EC2 Public IP:** 65.2.178.141
 
+## Important: Docker Build Behavior
+
+### Why `docker compose build` Fails After Cloning
+
+This repository is configured primarily for **CI/CD deployment through GitHub Actions**.
+
+When GitHub Actions runs, it automatically:
+
+* Generates a temporary SSL certificate during the build process.
+* Replaces the placeholder/self-signed certificate with the generated certificate.
+* Builds the Docker images using the updated files.
+
+If you simply clone this repository and run:
+
+```bash
+docker compose build
+```
+
+the build will fail because the required certificate replacement step is **not performed** during a manual local build.
+
+### Why This Design Exists
+
+The Docker configuration intentionally relies on the GitHub Actions workflow to prepare the build environment before the images are created. This keeps generated certificates out of the repository and ensures the deployment process is reproducible and automated.
+
+### How to Deploy
+
+The supported deployment workflow is:
+
+1. Make your changes locally.
+2. Commit and push the changes to GitHub.
+3. GitHub Actions automatically:
+
+   * Generates the required temporary certificate.
+   * Replaces the placeholder certificate.
+   * Builds the Docker images.
+   * Continues with the deployment process.
+
+**Note:** Manual Docker builds from a freshly cloned repository are **not supported** unless you manually perform the same certificate-generation and replacement steps that the GitHub Actions workflow performs.
+
+
 ## Assignment Summary
 
 This repository was provided as a DevOps deployment assignment with intentionally misconfigured deployment files.
