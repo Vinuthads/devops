@@ -287,10 +287,69 @@ The final solution incorporates:
 - Nginx reverse proxy with WebSocket support
 - Infrastructure as Code using Terraform
 - Automated CI/CD using GitHub Actions
-- Monitoring with Netdata
 - Persistent storage with Redis
 
 The implemented changes improved the reliability, maintainability, and automation of the deployment while following production-oriented DevOps practices.
+
+-------
+
+# Auto-Scaling Approach
+
+The current deployment provisions a single Amazon EC2 instance using Terraform. While this is sufficient for development and small-scale deployments, it does not provide automatic scaling during increased traffic.
+
+To support higher workloads and improve availability, the architecture can be enhanced with an AWS Auto Scaling Group (ASG).
+
+### Proposed Auto-Scaling Architecture
+
+```text
+                    Internet
+                        │
+                        ▼
+          Application Load Balancer (ALB)
+                │             │
+                ▼             ▼
+        EC2 Instance 1   EC2 Instance 2
+                │             │
+        Docker Compose   Docker Compose
+                │             │
+             Nginx          Nginx
+                │             │
+             Backend       Backend
+```
+
+### Auto-Scaling Workflow
+
+1. An Application Load Balancer (ALB) receives incoming client requests.
+2. The ALB distributes traffic across multiple EC2 instances.
+3. Each EC2 instance runs the complete Docker Compose stack, including Nginx, Backend, Redis, Certbot, and Netdata.
+4. AWS CloudWatch monitors metrics such as CPU utilization.
+5. When CPU utilization exceeds a defined threshold (for example, 70%), the Auto Scaling Group automatically launches additional EC2 instances.
+6. Newly launched instances automatically install Docker, clone the repository, and deploy the application using the existing CI/CD workflow.
+7. The Application Load Balancer automatically registers healthy instances and begins routing traffic to them.
+8. When demand decreases and CPU utilization falls below the configured threshold, the Auto Scaling Group terminates unnecessary EC2 instances, optimizing infrastructure costs.
+
+### Container Auto-Scaling (Future Enhancement)
+
+The current deployment uses Docker Compose, which does not provide automatic container scaling based on workload. If higher application scalability is required, the deployment can be migrated to a container orchestration platform such as **Amazon ECS** or **Amazon EKS (Kubernetes)**.
+
+These platforms support container-level auto scaling by automatically increasing or decreasing the number of application containers based on metrics such as:
+
+- CPU utilization
+- Memory utilization
+- Request rate
+- Custom CloudWatch metrics
+
+This approach enables independent scaling of application containers without provisioning additional EC2 instances unless required, providing more efficient resource utilization for large-scale production deployments.
+
+### Benefits
+
+- Automatically handles increased traffic.
+- Improves application availability and fault tolerance.
+- Optimizes infrastructure costs by scaling resources based on demand.
+- Supports horizontal scaling through additional EC2 instances.
+- Provides a clear migration path to container-level auto scaling using Amazon ECS or Amazon EKS for larger deployments.
+
+> **Note:** The current implementation deploys the application on a single EC2 instance using Docker Compose. The Auto Scaling Group and container auto-scaling approaches described above are recommended production enhancements and are not implemented in this project.
 
                                                                  |
  
