@@ -8,7 +8,7 @@ variable "aws_region" {
 variable "instance_type" {
   description = "Free tier EC2 instance type"
   type        = string
-  default     = "t2.micro"
+  default     = "t3.micro"
 }
 
 
