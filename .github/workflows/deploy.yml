@@ -18,6 +18,8 @@ jobs:
 
     runs-on: ubuntu-latest
 
+    outputs:
+      ec2_ip: ${{ steps.get_ip.outputs.ip }}
 
     steps:
 
