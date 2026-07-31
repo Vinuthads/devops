@@ -89,6 +89,15 @@ jobs:
 
 
           script: |
+            echo "Waiting for Docker installation..."
+            until command -v docker >/dev/null 2>&1
+            do
+              echo "Docker not installed yet, waiting..."
+              sleep 10
+            done
+
+
+            echo "Docker is installed"
 
             if [ ! -d "/home/ubuntu/devops" ]; then
               cd /home/ubuntu
