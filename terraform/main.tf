@@ -300,7 +300,7 @@ EOF
 
 }
 # -------------------------
-Route53 settings
+# Route53 settings
 # -------------------------
 
 data "aws_route53_zone" "selected" {
