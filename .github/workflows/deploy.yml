@@ -132,7 +132,6 @@ jobs:
                 --webroot \
                 --webroot-path=/var/www/certbot \
                 -d resilientbeing.online \
-                -d www.resilientbeing.online \
                 --agree-tos \
                 --register-unsafely-without-email
 
