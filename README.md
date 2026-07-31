@@ -53,7 +53,7 @@ The focus of this project is on:
 
 # Architecture Diagram
 
-![Architecture Diagram](./docs/architecture.png)
+![Architecture Diagram](/architectural diagram.png)
 
 # Docker Container Setup
 
