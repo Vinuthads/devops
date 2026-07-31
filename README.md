@@ -1,51 +1,293 @@
-# DevOps Engineering Assignment: Real-Time Chat App
+# 🚀 DevOps Deployment Project
 
-Welcome! In this assignment, you are tasked with fixing a broken staging environment for our Real-Time Chat web application. 
+## Assignment Summary
 
-A junior developer recently attempted to containerize this application using Docker and NGINX, but the deployment is currently failing on multiple fronts. Your job is to debug their configuration files and get the application fully operational via Docker Compose.
+This repository was provided as a DevOps deployment assignment with intentionally misconfigured deployment files.
 
-## System Architecture
+My work focused on identifying and resolving deployment issues while implementing production-oriented DevOps practices.
 
-The application is built using two primary containers:
-1. **Backend (`backend`)**: A Python-based FastAPI server operating on Port 8000. It handles persistent, real-time WebSocket connections on the `/ws` endpoint.
-2. **Frontend Proxy (`nginx`)**: An NGINX container mapped to Port 80. It is responsible for serving the static files from the `frontend/` directory, while simultaneously intercepting and reverse-proxying all WebSocket upgrade requests down to the backend container.
+### Key Improvements
 
-### Directory Structure
-```text
-realtime-chat-app/
-├── app/
-│   ├── main.py              # FastAPI application server
-│   └── requirements.txt     # Python dependencies
-├── frontend/
-│   └── index.html           # Simple, styled single-page HTML client
-├── Dockerfile               # Instructions to build the Python backend image
-├── docker-compose.yml       # Composes both NGINX and Python Backend services
-└── nginx.conf               # Configuration for NGINX routing and WS proxy
-```
+- Fixed Docker container networking
+- Corrected Nginx reverse proxy configuration
+- Enabled WebSocket support
+- Configured HTTPS using Let's Encrypt
+- Added Redis for persistent storage
+- Added Netdata for monitoring
+- Automated infrastructure provisioning using Terraform
+- Implemented CI/CD using GitHub Actions
+- Configured Route53 DNS
 
-## Your Mission
+## Project Overview
 
-If you run `docker-compose up -d --build` right now, the containers will start, but the application will not work. You need to debug and fix the following three critical issues:
+This project demonstrates the deployment of a containerized web application on AWS using modern DevOps practices. The primary objective of the assignment was to analyze an existing deployment, identify configuration issues, implement the required fixes, and automate the infrastructure and deployment process.
 
-### 1. Fix the Docker Binding (Container Networking)
-The FastAPI backend container is refusing external connections—even from the NGINX container! 
-* **Hint:** Look at how the `uvicorn` command is binding its host in the `Dockerfile`. Inside a Docker container, binding to `localhost` or `127.0.0.1` makes the service unreachable to other containers on the Docker network.
+The focus of this project is on:
 
-### 2. Fix the Missing User Interface (Volume Mounts)
-If you navigate to `http://localhost` right now, you will likely see the default "Welcome to NGINX" page instead of the chat application.
-* **Hint:** Check `docker-compose.yml`. How is the `nginx` container supposed to get access to the static HTML files located in the local `frontend/` directory? 
+- Docker containerization
+- Docker networking
+- Nginx reverse proxy configuration
+- HTTPS using Let's Encrypt
+- Infrastructure as Code (Terraform)
+- CI/CD automation using GitHub Actions
+- Production deployment practices
 
-### 3. Fix the WebSocket Tunnel (Reverse Proxy Configuration)
-Once the UI is visible, the chat app will continuously say "Disconnected" because the WebSocket handshake is failing.
-* **Hint #1:** In `nginx.conf`, the `proxy_pass` is attempting to route to `localhost:8000`. Does `localhost` mean the same thing inside the NGINX container as it does on your laptop? How do containers communicate with each other in a Compose network?
-* **Hint #2:** NGINX requires explicit headers to convert standard HTTP traffic into a persistent WebSocket tunnel. Some of the required `Upgrade` headers appear to be missing or disabled.
+---------------------
 
-## Deliverables
 
-Submit your finalized, corrected codebase. We will evaluate your submission by executing:
+# Summary of Issues Fixed
+
+| Component | Issue | Solution |
+|----------|--------|----------|
+| Dockerfile | Backend bound to `127.0.0.1` | Updated to `0.0.0.0` |
+| Docker Compose | Frontend volume not mounted | Mounted frontend directory |
+| Docker Compose | `restart: always` | Changed to `unless-stopped` |
+| Docker Compose | Missing Redis | Added Redis container |
+| Docker Compose | Missing monitoring | Added Netdata |
+| Docker Compose | Missing HTTPS support | Added Certbot |
+| Docker Compose | No backend health check | Added Docker health check |
+| Nginx | Backend pointed to `localhost` | Updated to `backend:8000` |
+| Nginx | WebSocket upgrade disabled | Enabled Upgrade and Connection headers |
+
+---------
+
+# Architecture Diagram
+
+![Architecture Diagram](./docs/architecture.png)
+
+# Docker Container Setup
+
+Docker Compose is used to orchestrate the deployment of all application services. Each service runs in its own isolated container while communicating over Docker's internal bridge network.
+
+The deployment consists of the following containers:
+
+| Container | Purpose |
+|-----------|---------|
+| Backend | Runs the FastAPI application |
+| Nginx | Serves the frontend and acts as a reverse proxy |
+| Redis | Provides persistent in-memory data storage |
+| Certbot | Generates and manages Let's Encrypt SSL certificates |
+| Netdata | Provides server and container monitoring |
+
+Docker Compose allows the entire application stack to be started with a single command:
 
 ```bash
-docker-compose up -d --build
+docker compose up --build -d
 ```
 
-If everything is configured correctly, we should instantly see the UI and be able to open multiple browser tabs at `http://localhost` to chat back and forth in real-time. Good luck!
+---
+
+# Docker Networking
+
+Docker Compose automatically creates an isolated bridge network for all services defined in the `docker-compose.yml` file.
+
+Instead of communicating using IP addresses, containers communicate using their service names through Docker's built-in DNS service.
+
+
+The communication flow is shown below:
+
+```
+Browser
+    │
+    ▼
+Nginx
+    │
+    ▼
+Backend
+    │
+    ▼
+Redis
+```
+
+The backend container is not directly exposed to the Internet. All client requests first reach the Nginx container, which forwards requests internally to the backend service.
+
+-----------
+
+# Nginx Reverse Proxy
+
+Nginx acts as the entry point for all incoming client requests. It is responsible for:
+
+- Serving the frontend static files
+- Redirecting HTTP traffic to HTTPS
+- Terminating SSL using Let's Encrypt certificates
+- Forwarding WebSocket requests to the backend application
+
+The reverse proxy architecture hides the backend service from direct public access, improving security and providing a single entry point for all client traffic.
+
+---
+
+# HTTPS Configuration
+
+The original configuration served traffic only over HTTP. The deployment was enhanced to support secure communication using **Let's Encrypt**.
+
+### Improvements Made
+
+- Added HTTP → HTTPS redirection
+- Configured SSL certificates generated by Certbot
+- Enabled TLS 1.2 and TLS 1.3
+- Enabled HTTP/2 for improved performance
+
+```nginx
+server {
+    listen 80;
+
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+```
+
+This ensures all user traffic is encrypted while allowing Let's Encrypt to validate domain ownership during certificate generation.
+
+---
+
+# WebSocket Through Nginx
+
+The application communicates with the backend using WebSockets.
+
+When a client initiates a WebSocket connection:
+
+1. The browser sends a request to Nginx.
+2. Nginx upgrades the HTTP connection to a WebSocket connection.
+3. Nginx forwards the request to the backend container.
+4. The backend maintains a persistent bidirectional connection with the client.
+
+### WebSocket Flow
+
+```text
+Browser
+    │
+HTTP Request
+    │
+    ▼
+Nginx
+    │
+HTTP Upgrade
+    │
+    ▼
+Backend
+```
+
+----------
+
+# CI/CD Pipeline
+
+The deployment process is fully automated using **GitHub Actions**.
+
+Whenever code is pushed to the `main` branch, the pipeline performs the following tasks:
+
+## Stage 1 – Infrastructure Provisioning
+
+- Checkout the repository
+- Configure AWS credentials
+- Initialize Terraform
+- Generate Terraform execution plan
+- Provision or update AWS infrastructure
+- Retrieve the EC2 public IP
+
+## Stage 2 – Application Deployment
+
+After the infrastructure is ready, GitHub Actions:
+
+- Connects to the EC2 instance using SSH
+- Clones or updates the GitHub repository
+- Waits for Docker to become available
+- Builds the Docker images
+- Starts all containers using Docker Compose
+- Generates a temporary self-signed certificate if required
+- Obtains a Let's Encrypt certificate using Certbot
+- Restarts Nginx to apply the SSL certificate
+- Cleans up unused Docker images
+
+### CI/CD Workflow
+
+```text
+Developer Push
+        │
+        ▼
+GitHub
+        │
+        ▼
+GitHub Actions
+        │
+ ┌──────┴─────────┐
+ │                │
+ ▼                ▼
+Terraform     Deploy Application
+ │                │
+ ▼                ▼
+Provision EC2   Docker Compose
+ │                │
+ └──────┬─────────┘
+        ▼
+ Application Available
+```
+
+---
+
+# Deployment Steps
+
+## Prerequisites
+
+- AWS Account
+- Terraform
+- Docker
+- Docker Compose
+- GitHub Repository
+- Route53 Hosted Zone
+- Registered Domain
+
+---
+The deployment is automated through GitHub Actions.
+
+Simply push the changes to the `main` branch:
+
+Terraform provisions:
+
+- VPC
+- Public Subnet
+- Internet Gateway
+- Route Table
+- Security Group
+- EC2 Instance
+- Route53 DNS Record
+
+---
+
+The GitHub Actions workflow automatically:
+
+- Creates or updates AWS infrastructure
+- Deploys the latest application to EC2
+- Starts all Docker containers
+- Configures HTTPS
+- Restarts Nginx after certificate generation
+
+------
+
+# Conclusion
+
+This project demonstrates the practical application of modern DevOps practices for deploying a containerized application on AWS.
+
+The assignment focused on identifying deployment issues, implementing production-oriented fixes, and automating infrastructure provisioning and application deployment.
+
+The final solution incorporates:
+
+- Docker-based containerization
+- Docker Compose orchestration
+- Secure HTTPS communication using Let's Encrypt
+- Nginx reverse proxy with WebSocket support
+- Infrastructure as Code using Terraform
+- Automated CI/CD using GitHub Actions
+- Monitoring with Netdata
+- Persistent storage with Redis
+
+The implemented changes improved the reliability, maintainability, and automation of the deployment while following production-oriented DevOps practices.
+
+                                                                 |
+ 
+
+                         |
