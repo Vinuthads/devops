@@ -227,54 +227,58 @@ resource "aws_instance" "server" {
 
   # Install Git, Docker and Docker Compose
 
-  user_data = <<-EOF
-              #!/bin/bash
+   user_data = <<-EOF
+    #!/bin/bash
+    set -e
+    apt update -y
+    # Install required packages
+    apt install -y \
+    git \
+    ca-certificates \
+    curl \
+    gnupg
 
-              apt update -y
+    # Install Docker official repository
+    install -m 0755 -d /etc/apt/keyrings
+    curl -fsSL https://download.docker.com/linux/ubuntu/gpg \
+  | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
 
-              apt upgrade -y
-
-
-              # Install Git
-
-              apt install git -y
-
-
-
-              # Install Docker
-
-              apt install docker.io -y
-
-
-
-              # Start Docker service
-
-              systemctl start docker
-
-              systemctl enable docker
+    chmod a+r /etc/apt/keyrings/docker.gpg
 
 
-
-              # Allow ubuntu user to run docker commands
-
-              usermod -aG docker ubuntu
-
+    echo \
+    "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo $VERSION_CODENAME) stable" \
+    | tee /etc/apt/sources.list.d/docker.list > /dev/null
 
 
-              # Install Docker Compose
-
-              apt install docker-compose-plugin -y
+    apt update -y
 
 
+  # Install Docker Engine + Compose plugin
 
-              # Verify installation
+  apt install -y \
+    docker-ce \
+    docker-ce-cli \
+    containerd.io \
+    docker-buildx-plugin \
+    docker-compose-plugin
 
-              docker --version
+# Enable Docker
 
-              docker compose version
+systemctl enable docker
+
+systemctl start docker
+
+# Allow ubuntu user to use docker
+
+usermod -aG docker ubuntu
 
 
-              EOF
+# Verify
+docker --version
+docker compose version
+
+EOF
 
 
 
