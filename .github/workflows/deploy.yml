@@ -51,7 +51,11 @@ jobs:
         working-directory: terraform
         run: terraform apply -auto-approve
 
-
+      - name: get EC2 public Ip
+        id: get_ip
+        working-directory: terraform
+        run:
+          echo "ip=$(terraform output -raw instance_public_ip)" >> $GITHUB_OUTPUT
 
   # -----------------------------
   # Job 2: Application Deployment
@@ -75,7 +79,7 @@ jobs:
 
         with:
 
-          host: ${{ secrets.EC2_HOST }}
+          host: ${{ needs.terraform.outputs.ec2_ip }}
 
           username: ${{ secrets.EC2_USER }}
 
@@ -84,9 +88,15 @@ jobs:
 
           script: |
 
-            cd ${{ secrets.PROJECT_PATH }}
+            if [ ! -d "/home/ubuntu/devops" ]; then
+              cd /home/ubuntu
+              git clone https://github.com/Vinuthads/devops.git
+            else
+              cd /home/ubuntu/devops
+              git pull origin main
+            fi
 
-            git pull origin main
+            cd ${{ secrets.PROJECT_PATH }}
 
             sudo docker compose up --build -d
 
