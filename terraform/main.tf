@@ -195,105 +195,69 @@ resource "aws_security_group" "web" {
 
 resource "aws_instance" "server" {
 
-
-  ami = var.ami_id
-
-
+  ami           = var.ami_id
   instance_type = var.instance_type
-
-
 
   subnet_id = aws_subnet.public.id
 
-
-
   vpc_security_group_ids = [
-
     aws_security_group.web.id
-
   ]
-
-
-
-  # Existing AWS EC2 Key Pair
-
-  # Your AWS key pair name: server
 
   key_name = var.key_name
 
+  user_data = <<-EOF
+#!/bin/bash
+set -eux
 
+export DEBIAN_FRONTEND=noninteractive
 
-  # Bootstrap EC2
+apt-get update -y
 
-  # Install Git, Docker and Docker Compose
+apt-get install -y \
+    ca-certificates \
+    curl \
+    gnupg \
+    git
 
-  #!/bin/bash
-  set -eux
+install -m 0755 -d /etc/apt/keyrings
 
-  export DEBIAN_FRONTEND=noninteractive
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | \
+gpg --dearmor -o /etc/apt/keyrings/docker.gpg
 
-  apt-get update -y
+chmod a+r /etc/apt/keyrings/docker.gpg
 
-  # Install prerequisites
-  apt-get install -y \
-      ca-certificates \
-      curl \
-      gnupg \
-      git
+echo \
+"deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
+$(. /etc/os-release && echo $VERSION_CODENAME) stable" | \
+tee /etc/apt/sources.list.d/docker.list > /dev/null
 
-  # Add Docker GPG key
-  install -m 0755 -d /etc/apt/keyrings
+apt-get update -y
 
-  curl -fsSL https://download.docker.com/linux/ubuntu/gpg | \
-  gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+apt-get install -y \
+    docker-ce \
+    docker-ce-cli \
+    containerd.io \
+    docker-buildx-plugin \
+    docker-compose-plugin
 
-  chmod a+r /etc/apt/keyrings/docker.gpg
+systemctl enable docker
+systemctl start docker
 
-  # Add Docker repository
-  echo \
-  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
-  $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
-  tee /etc/apt/sources.list.d/docker.list > /dev/null
+usermod -aG docker ubuntu
 
-  apt-get update -y
-
-  # Install Docker
-  apt-get install -y \
-      docker-ce \
-      docker-ce-cli \
-      containerd.io \
-      docker-buildx-plugin \
-      docker-compose-plugin
-
-  # Start Docker
-  systemctl enable docker
-  systemctl start docker
-
-  # Add ubuntu user to docker group
-  usermod -aG docker ubuntu
-
-  # Verify installation
-  docker --version
-  docker compose version
-
-
+docker --version
+docker compose version
+EOF
 
   root_block_device {
-
     volume_size = 20
-
     volume_type = "gp3"
-
   }
-
-
 
   tags = {
-
     Name = "${var.project_name}-server"
-
   }
-
 }
 # -------------------------
 # Route53 settings
