@@ -99,14 +99,17 @@ jobs:
 
             echo "Waiting for Docker..."
 
+
             until command -v docker >/dev/null 2>&1
             do
+              echo "Docker not installed yet..."
               sleep 10
             done
 
 
             until sudo systemctl is-active --quiet docker
             do
+              echo "Waiting for Docker service..."
               sleep 5
             done
 
@@ -114,6 +117,10 @@ jobs:
             echo "Docker ready"
 
 
+
+            #############################################
+            # Clone repository
+            #############################################
 
             if [ ! -d "/home/ubuntu/devops" ]; then
 
@@ -133,24 +140,81 @@ jobs:
 
 
 
-            echo "Starting containers"
+            #############################################
+            # Start application containers
+            #############################################
 
+            echo "Starting containers"
 
 
             sudo docker compose up --build -d
 
 
 
-            echo "Reloading nginx"
+            echo "Waiting for nginx startup"
+
+            sleep 15
 
 
 
-            sudo docker compose restart nginx
+            #############################################
+            # Initial SSL Certificate Bootstrap
+            #############################################
+
+            DOMAIN="resilientbeing.online"
+
+            CERT_PATH="./certbot/conf/live/$DOMAIN/fullchain.pem"
 
 
+
+            if [ ! -f "$CERT_PATH" ]; then
+
+
+              echo "No SSL certificate found."
+
+              echo "Requesting initial Let's Encrypt certificate..."
+
+
+
+              sudo docker compose run --rm certbot certonly \
+                --webroot \
+                --webroot-path=/var/www/certbot \
+                -d "$DOMAIN" \
+                --agree-tos \
+                --register-unsafely-without-email \
+                --non-interactive
+
+
+
+              echo "Certificate created."
+
+              echo "Restarting nginx to load certificate."
+
+
+
+              sudo docker compose restart nginx
+
+
+
+            else
+
+
+              echo "SSL certificate already exists."
+
+              echo "Skipping certificate generation."
+
+
+            fi
+
+
+
+
+            #############################################
+            # Cleanup
+            #############################################
 
             sudo docker image prune -f
 
 
 
-            echo "Deployment completed"
+            echo "Deployment completed successfully."
