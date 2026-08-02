@@ -47,6 +47,7 @@ if [ ! -f "$CERT_FILE" ]; then
 
 
     docker compose run --rm certbot certonly \
+        --staging
         --webroot \
         --webroot-path=/var/www/certbot \
         -d "$DOMAIN" \
