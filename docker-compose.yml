@@ -59,5 +59,36 @@ services:
       - ./certbot/conf:/etc/letsencrypt
       - ./certbot/www:/var/www/certbot
 
+    # Automatic certificate renewal
+  certbot-renew:
+    image: certbot/certbot
+    container_name: certbot-renew
+
+    restart: unless-stopped
+
+    volumes:
+      - ./certbot/conf:/etc/letsencrypt
+      - ./certbot/www:/var/www/certbot
+      - /var/run/docker.sock:/var/run/docker.sock
+
+    entrypoint: >
+      sh -c "
+      while :;
+      do
+
+        echo 'Checking certificate renewal';
+
+        certbot renew \
+        --webroot \
+        --webroot-path=/var/www/certbot;
+
+        echo 'Reloading nginx';
+
+        docker kill -s HUP chat-nginx || true;
+
+        sleep 12h;
+
+      done"
+
 volumes:
   redis-data:
