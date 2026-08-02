@@ -5,11 +5,9 @@
 - **Domain:** https://resilientbeing.online
 - **EC2 Public IP:** 13.127.98.111
 
-### How to Deploy
+### How to Deploy manually
 
-The supported deployment workflow is:
-
-1. download docket
+1. download docker
 2. git clone https://github.com/Vinuthads/devops.git
 3. bash init-cert.sh
 4. access it from browser (https://13.127.98.111/)
