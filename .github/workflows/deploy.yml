@@ -72,108 +72,102 @@ jobs:
 
           script: |
             set -e
-
+          
             echo "Waiting for Docker installation..."
             until command -v docker >/dev/null 2>&1; do
               echo "Docker not installed yet..."
               sleep 10
             done
-
+          
             until sudo systemctl is-active --quiet docker; do
               echo "Waiting for Docker service..."
               sleep 5
             done
-
+          
             echo "Docker is ready."
-
+          
             # Clone repository if required
             if [ ! -d "/home/ubuntu/devops" ]; then
               cd /home/ubuntu
               git clone https://github.com/Vinuthads/devops.git
             fi
-
+          
             cd /home/ubuntu/devops
             git pull origin main
-
+          
             DOMAIN="resilientbeing.online"
             CERT_DIR="./certbot/conf/live/$DOMAIN"
-
-            # Ensure webroot exists
+          
+            # Create webroot
             mkdir -p ./certbot/www
             chmod -R 777 ./certbot/www
-
+          
             #########################################################
-            # Create temporary certificate only if none exists
+            # Create temporary self-signed certificate (first deployment)
             #########################################################
-
+          
             if [ ! -f "$CERT_DIR/fullchain.pem" ] || [ ! -f "$CERT_DIR/privkey.pem" ]; then
           
                 echo "Creating temporary self-signed certificate..."
           
-                sudo mkdir -p "$CERT_DIR"
+                mkdir -p "$CERT_DIR"
           
-                sudo openssl req \
-                    -x509 \
-                    -nodes \
-                    -newkey rsa:2048 \
-                    -days 1 \
-                    -keyout "$CERT_DIR/privkey.pem" \
-                    -out "$CERT_DIR/fullchain.pem" \
-                    -subj "/CN=$DOMAIN"
+                openssl req \
+                  -x509 \
+                  -nodes \
+                  -newkey rsa:2048 \
+                  -days 1 \
+                  -keyout "$CERT_DIR/privkey.pem" \
+                  -out "$CERT_DIR/fullchain.pem" \
+                  -subj "/CN=$DOMAIN"
           
             fi
-
+          
             #########################################################
-            # Start application
+            # Start containers
             #########################################################
           
             sudo docker compose up --build -d
           
-            echo "Waiting for nginx..."
+            echo "Waiting for Nginx..."
             sleep 15
           
             #########################################################
-            # Check existing certificate
+            # Check for existing Let's Encrypt certificate
             #########################################################
-            
-            echo "Checking Let's Encrypt certificate..."
-            
-            if sudo docker compose run --rm certbot certificates | grep -q "Certificate Name: $DOMAIN"; then
-            
-                echo "Valid certificate exists. Running renewal..."
-            
-                sudo docker compose run --rm certbot renew
-            
+          
+            if sudo docker compose run --rm certbot certificates 2>/dev/null | grep -q "Certificate Name:"; then
+          
+                echo "Existing Let's Encrypt certificate found."
+          
+                sudo docker compose run --rm certbot renew || true
+          
             else
-            
-                echo "No valid certificate found."
-            
-                echo "Cleaning broken Certbot state..."
-            
-                sudo rm -rf certbot/conf/live/$DOMAIN
-                sudo rm -rf certbot/conf/archive/$DOMAIN
-                sudo rm -f certbot/conf/renewal/$DOMAIN.conf
-            
-                echo "Requesting new certificate..."
-            
+          
+                echo "No Let's Encrypt certificate found."
+          
+                echo "Attempting first certificate issuance..."
+          
                 sudo docker compose run --rm certbot certonly \
-                    --webroot \
-                    --webroot-path=/var/www/certbot \
-                    -d "$DOMAIN" \
-                    --agree-tos \
-                    --register-unsafely-without-email \
-                    --non-interactive
-            
+                  --webroot \
+                  --webroot-path=/var/www/certbot \
+                  -d "$DOMAIN" \
+                  --agree-tos \
+                  --register-unsafely-without-email \
+                  --non-interactive || true
+          
             fi
-            
-            echo "Restarting nginx..."
-            
+          
+            #########################################################
+            # Restart nginx (loads new certificate if obtained)
+            #########################################################
+          
             sudo docker compose restart nginx
-            
+          
             #########################################################
             # Cleanup
             #########################################################
-            
+          
             sudo docker image prune -f
-            
+          
             echo "Deployment completed successfully."
