@@ -5,6 +5,7 @@ on:
     branches:
       - main
 
+
 jobs:
 
   # -----------------------------
@@ -18,8 +19,10 @@ jobs:
       ec2_ip: ${{ steps.get_ip.outputs.ip }}
 
     steps:
+
       - name: Checkout Repository
         uses: actions/checkout@v4
+
 
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -28,20 +31,25 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ap-south-1
 
+
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
+
 
       - name: Terraform Init
         working-directory: terraform
         run: terraform init
 
+
       - name: Terraform Plan
         working-directory: terraform
         run: terraform plan
 
+
       - name: Terraform Apply
         working-directory: terraform
         run: terraform apply -auto-approve
+
 
       - name: Get EC2 Public IP
         id: get_ip
@@ -49,125 +57,100 @@ jobs:
         run: |
           echo "ip=$(terraform output -raw instance_public_ip)" >> $GITHUB_OUTPUT
 
+
+
   # -----------------------------
   # Job 2: Deploy Application
   # -----------------------------
   deploy:
+
     name: Deploy Docker Application
+
     runs-on: ubuntu-latest
+
     needs: terraform
+
 
     steps:
 
-      - name: Wait for DNS propagation
+
+      - name: Wait for EC2
         run: sleep 60
 
+
+
       - name: Deploy to EC2
+
         uses: appleboy/ssh-action@v1.0.3
 
         with:
+
           host: ${{ needs.terraform.outputs.ec2_ip }}
+
           username: ${{ secrets.EC2_USER }}
+
           key: ${{ secrets.SSH_PRIVATE_KEY }}
 
+
           script: |
+
             set -e
-          
-            echo "Waiting for Docker installation..."
-            until command -v docker >/dev/null 2>&1; do
-              echo "Docker not installed yet..."
+
+
+            echo "Waiting for Docker..."
+
+            until command -v docker >/dev/null 2>&1
+            do
               sleep 10
             done
-          
-            until sudo systemctl is-active --quiet docker; do
-              echo "Waiting for Docker service..."
+
+
+            until sudo systemctl is-active --quiet docker
+            do
               sleep 5
             done
-          
-            echo "Docker is ready."
-          
-            # Clone repository if required
+
+
+            echo "Docker ready"
+
+
+
             if [ ! -d "/home/ubuntu/devops" ]; then
+
               cd /home/ubuntu
+
               git clone https://github.com/Vinuthads/devops.git
+
             fi
-          
+
+
+
             cd /home/ubuntu/devops
+
+
+
             git pull origin main
-          
-            DOMAIN="resilientbeing.online"
-            CERT_DIR="./certbot/conf/live/$DOMAIN"
-          
-            # Create webroot
-            mkdir -p ./certbot/www
-            chmod -R 777 ./certbot/www
-          
-            #########################################################
-            # Create temporary self-signed certificate (first deployment)
-            #########################################################
-          
-            if [ ! -f "$CERT_DIR/fullchain.pem" ] || [ ! -f "$CERT_DIR/privkey.pem" ]; then
-          
-                echo "Creating temporary self-signed certificate..."
-          
-                mkdir -p "$CERT_DIR"
-          
-                openssl req \
-                  -x509 \
-                  -nodes \
-                  -newkey rsa:2048 \
-                  -days 1 \
-                  -keyout "$CERT_DIR/privkey.pem" \
-                  -out "$CERT_DIR/fullchain.pem" \
-                  -subj "/CN=$DOMAIN"
-          
-            fi
-          
-            #########################################################
-            # Start containers
-            #########################################################
-          
+
+
+
+            echo "Starting containers"
+
+
+
             sudo docker compose up --build -d
-          
-            echo "Waiting for Nginx..."
-            sleep 15
-          
-            #########################################################
-            # Check for existing Let's Encrypt certificate
-            #########################################################
-          
-            if sudo docker compose run --rm certbot certificates 2>/dev/null | grep -q "Certificate Name:"; then
-          
-                echo "Existing Let's Encrypt certificate found."
-          
-                sudo docker compose run --rm certbot renew || true
-          
-            else
-          
-                echo "No Let's Encrypt certificate found."
-          
-                echo "Attempting first certificate issuance..."
-          
-                sudo docker compose run --rm certbot certonly \
-                  --webroot \
-                  --webroot-path=/var/www/certbot \
-                  -d "$DOMAIN" \
-                  --agree-tos \
-                  --register-unsafely-without-email \
-                  --non-interactive || true
-          
-            fi
-          
-            #########################################################
-            # Restart nginx (loads new certificate if obtained)
-            #########################################################
-          
+
+
+
+            echo "Reloading nginx"
+
+
+
             sudo docker compose restart nginx
-          
-            #########################################################
-            # Cleanup
-            #########################################################
-          
+
+
+
             sudo docker image prune -f
-          
-            echo "Deployment completed successfully."
+
+
+
+            echo "Deployment completed"
