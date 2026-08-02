@@ -133,23 +133,29 @@ jobs:
             sleep 15
           
             #########################################################
-            # Check certificate issuer
+            # Check existing certificate
             #########################################################
-
-            ISSUER=""
-        
-            if [ -f "$CERT_DIR/fullchain.pem" ]; then
-              ISSUER=$(openssl x509 -in "$CERT_DIR/fullchain.pem" -noout -issuer || true)
-            fi
-        
-            #########################################################
-            # First deployment (self-signed certificate)
-            #########################################################                                  
-
-            if echo "$ISSUER" | grep -qi "CN=$DOMAIN"; then
-          
-                echo "Self-signed certificate detected."
-          
+            
+            echo "Checking Let's Encrypt certificate..."
+            
+            if sudo docker compose run --rm certbot certificates | grep -q "Certificate Name: $DOMAIN"; then
+            
+                echo "Valid certificate exists. Running renewal..."
+            
+                sudo docker compose run --rm certbot renew
+            
+            else
+            
+                echo "No valid certificate found."
+            
+                echo "Cleaning broken Certbot state..."
+            
+                sudo rm -rf certbot/conf/live/$DOMAIN
+                sudo rm -rf certbot/conf/archive/$DOMAIN
+                sudo rm -f certbot/conf/renewal/$DOMAIN.conf
+            
+                echo "Requesting new certificate..."
+            
                 sudo docker compose run --rm certbot certonly \
                     --webroot \
                     --webroot-path=/var/www/certbot \
@@ -157,31 +163,17 @@ jobs:
                     --agree-tos \
                     --register-unsafely-without-email \
                     --non-interactive
-          
-                echo "Reloading nginx..."
-          
-                sudo docker compose restart nginx
-          
-            #########################################################
-            # Existing Let's Encrypt certificate
-            #########################################################
-
-            else
-          
-                echo "Let's Encrypt certificate found."
-          
-                sudo docker compose run --rm certbot renew
-          
-                echo "Reloading nginx..."
-          
-                sudo docker compose restart nginx
-          
+            
             fi
-          
+            
+            echo "Restarting nginx..."
+            
+            sudo docker compose restart nginx
+            
             #########################################################
             # Cleanup
             #########################################################
-
+            
             sudo docker image prune -f
-
+            
             echo "Deployment completed successfully."
