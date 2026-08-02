@@ -141,7 +141,68 @@ jobs:
 
 
             #############################################
-            # Start application containers
+            # Temporary SSL certificate bootstrap
+            #############################################
+
+            DOMAIN="resilientbeing.online"
+
+            CERT_DIR="./certbot/conf/live/$DOMAIN"
+
+            FULLCHAIN="$CERT_DIR/fullchain.pem"
+
+            PRIVKEY="$CERT_DIR/privkey.pem"
+
+            LE_CERT="$CERT_DIR/cert.pem"
+
+
+
+            sudo mkdir -p "$CERT_DIR"
+
+
+
+            if [ ! -f "$LE_CERT" ]; then
+
+
+              echo "No Let's Encrypt certificate found."
+
+
+              if [ ! -f "$FULLCHAIN" ] || [ ! -f "$PRIVKEY" ]; then
+
+
+                echo "Creating temporary self-signed certificate..."
+
+
+                sudo openssl req \
+                  -x509 \
+                  -nodes \
+                  -newkey rsa:2048 \
+                  -days 1 \
+                  -keyout "$PRIVKEY" \
+                  -out "$FULLCHAIN" \
+                  -subj "/CN=$DOMAIN"
+
+
+                echo "Temporary certificate created."
+
+
+              else
+
+                echo "Temporary certificate already exists."
+
+              fi
+
+
+            else
+
+
+              echo "Real Let's Encrypt certificate already exists."
+
+            fi
+
+
+
+            #############################################
+            # Start containers
             #############################################
 
             echo "Starting containers"
@@ -158,22 +219,13 @@ jobs:
 
 
             #############################################
-            # Initial SSL Certificate Bootstrap
+            # Request real Let's Encrypt certificate
             #############################################
 
-            DOMAIN="resilientbeing.online"
-
-            CERT_PATH="./certbot/conf/live/$DOMAIN/fullchain.pem"
+            if [ ! -f "$LE_CERT" ]; then
 
 
-
-            if [ ! -f "$CERT_PATH" ]; then
-
-
-              echo "No SSL certificate found."
-
-              echo "Requesting initial Let's Encrypt certificate..."
-
+              echo "Requesting Let's Encrypt certificate..."
 
 
               sudo docker compose run --rm certbot certonly \
@@ -186,26 +238,22 @@ jobs:
 
 
 
-              echo "Certificate created."
+              echo "Let's Encrypt certificate created."
 
-              echo "Restarting nginx to load certificate."
 
+              echo "Restarting nginx with real certificate."
 
 
               sudo docker compose restart nginx
 
 
-
             else
 
 
-              echo "SSL certificate already exists."
-
-              echo "Skipping certificate generation."
+              echo "Certificate already exists. Skipping certbot issuance."
 
 
             fi
-
 
 
 
